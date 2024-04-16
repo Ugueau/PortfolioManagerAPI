@@ -10,6 +10,12 @@ lerna-debug.log*
 #SQLite Test DB
 portfolio.db
 
+#Test document
+*.jpg
+*.png
+*.pdf
+*.jpeg
+
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
