@@ -18,7 +18,8 @@ const db = new sqlite.Database(
 
 function makeApp() {
   const app = express();
-
+  // Set the root directory for serving static files
+  app.use(express.static(path.join(__dirname, 'storage')));
   const baseLimit = 50;
 
   app.use(bodyParser.json());
@@ -166,7 +167,6 @@ function makeApp() {
   app.post("/category", upload.none(), (req, res) => {
     try {
       let title = req.body.title;
-      console.log(req.body);
       if (title == null || undefined) {
         return res.status(400).json({ error: "Invalid value" });
       }
@@ -219,6 +219,17 @@ function makeApp() {
     } catch (err) {
       return res.status(400).json({ error: err.message });
     }
+  });
+
+  app.get('/image/:imgPath', (req, res) => {
+    let img = req.params.imgPath;
+    if (img == null || undefined) {
+      return res.status(400).json({ error: "Invalid value" });
+    }
+    const imagePath = path.join(__dirname, 'storage', 'images', img);
+
+    // Send the image file
+    res.sendFile(imagePath);
   });
   
 
