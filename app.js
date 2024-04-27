@@ -108,8 +108,8 @@ function makeApp() {
       offset = req.query.offset;
     }
     let category = "all";
-    if (req.query.category !== undefined) {
-      category = req.query.category;
+    if (req.params.category !== undefined) {
+      category = req.params.category;
     }
     let sql = `SELECT d.*
         FROM document d
