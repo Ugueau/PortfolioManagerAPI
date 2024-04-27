@@ -45,6 +45,7 @@ To run the API using Docker, follow these steps:
 
 - **POST /category**: Create a new category.
 
+    Category 1 is "all", created when build the docker
     Example:
     ```bash
     curl -X POST -d "title=new_category" http://localhost:3000/category
