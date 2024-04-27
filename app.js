@@ -98,7 +98,7 @@ function makeApp() {
     }
   });
 
-  app.get("/category", (req, res) => {
+  app.get("/category/:catName", (req, res) => {
     let limit = baseLimit;
     if (req.query.limit !== undefined) {
       limit = req.query.limit;
@@ -108,8 +108,8 @@ function makeApp() {
       offset = req.query.offset;
     }
     let category = "all";
-    if (req.params.category !== undefined) {
-      category = req.params.category;
+    if (req.params.catName !== undefined) {
+      category = req.params.catName;
     }
     let sql = `SELECT d.*
         FROM document d
