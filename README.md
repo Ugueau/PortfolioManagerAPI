@@ -40,7 +40,7 @@ To run the API using Docker, follow these steps:
 
     Example:
     ```bash
-    curl http://localhost:3000/category?category=portfolio
+    curl http://localhost:3000/category?category=all
     ```
 
 - **POST /category**: Create a new category.
