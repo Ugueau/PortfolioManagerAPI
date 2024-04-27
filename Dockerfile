@@ -10,12 +10,21 @@ COPY package*.json ./
 # Install npm dependencies
 RUN npm install
 
+# Install SQLite
+RUN apt-get update && apt-get install -y sqlite3
+
 # Copy the rest of the application code to the working directory
 COPY server.js .
 COPY app.js .
-COPY portfolio.db .
+COPY init_sqlite.sql .
 COPY server.js .
-COPY ./storage/images/*.* /usr/src/app/storage/images/
+
+# Create an empty SQLite database file
+RUN touch portfolio.db
+
+# Run SQLite3 to execute SQL script on the database file
+RUN sqlite3 portfolio.db < init_sqlite.sql
+
 # Expose the port on which your app runs
 EXPOSE 3000
 
