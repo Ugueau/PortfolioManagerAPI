@@ -27,7 +27,3 @@ CREATE TABLE image(
 FOREIGN KEY(doc_id) REFERENCES document(id) ON DELETE CASCADE,
 PRIMARY KEY("doc_id","img_path")
 );
-
--- MANDATORY Category
-INSERT INTO category ("title") VALUES
-('all');

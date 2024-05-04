@@ -59,8 +59,8 @@ function makeApp() {
             return res.status(400).json({ error: err });
           }
           if (rows.length < 1) {
-            console.error("No match");
-            return res.status(400).json({ error: "No match" });
+            console.error("No match id : ", id);
+            return res.status(400).json({ error: "No match", id });
           }
           console.log("Successfull request for document : ", docId);
           return res.status(200).json({ data: rows });
@@ -85,8 +85,8 @@ function makeApp() {
     }
     let sql = `SELECT d.*, GROUP_CONCAT(c.title) AS category_titles
     FROM document d
-    JOIN document_category dc ON d.id = dc.doc_id
-    JOIN category c ON dc.cat_id = c.id
+    LEFT JOIN document_category dc ON d.id = dc.doc_id
+    LEFT JOIN category c ON dc.cat_id = c.id
 
     GROUP BY d.id
     LIMIT ? OFFSET ?;`;
@@ -118,7 +118,7 @@ function makeApp() {
     if (req.query.offset !== undefined) {
       offset = req.query.offset;
     }
-    let category = "all";
+    let category = "";
     if (req.params.catName !== undefined) {
       category = req.params.catName;
     }
@@ -136,8 +136,8 @@ function makeApp() {
           return res.status(400).json({ error: err });
         }
         if (rows.length < 1) {
-          console.error("No match");
-          return res.status(400).json({ error: "No match" });
+          console.error("No match for category : ",category);
+          return res.status(400).json({ error: "No match",category });
         }
         console.log("Successfull request");
         return res.status(200).json({ data: rows });
@@ -206,7 +206,7 @@ function makeApp() {
 
       const categoryInsertQuery =
         "INSERT INTO document_category (doc_id, cat_id) VALUES (?, ?);";
-      const updatedCategories = [...categories, "1"];
+      const updatedCategories = [...categories];
       for (const categoryId of updatedCategories) {
         await new Promise((resolve, reject) => {
           db.run(categoryInsertQuery, [documentId, categoryId], function (err) {
