@@ -1,11 +1,13 @@
 const express = require("express");
 const multer = require("multer");
+const fs = require('fs');
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const bodyParser = require("body-parser");
 const { off } = require("process");
 
 const sqlite = require("sqlite3");
+const { log } = require("console");
 const db = new sqlite.Database(
   "./portfolio.db",
   sqlite.OPEN_READWRITE,
@@ -15,17 +17,21 @@ const db = new sqlite.Database(
     }
   }
 );
+db.run('PRAGMA foreign_keys = ON;');
 
 function makeApp() {
   const app = express();
   // Set the root directory for serving static files
-  app.use(express.static(path.join(__dirname, 'storage')));
+  app.use(express.static(path.join(__dirname, "storage")));
   const baseLimit = 50;
 
   app.use(bodyParser.json());
-  app.use(function(req, res, next) {
+  app.use(function (req, res, next) {
     res.header("Access-Control-Allow-Origin", "http://localhost:6969"); // update to match the domain you will make the request from
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept"
+    );
     next();
   });
 
@@ -85,7 +91,7 @@ function makeApp() {
     GROUP BY d.id
     LIMIT ? OFFSET ?;`;
     try {
-      db.all(sql, [limit,offset], (err, rows) => {
+      db.all(sql, [limit, offset], (err, rows) => {
         if (err) {
           console.error(err);
           return res.status(400).json({ error: err });
@@ -142,34 +148,94 @@ function makeApp() {
     }
   });
 
-  let currentFileName = "";
+  const imageFilter = function (req, file, cb) {
+    // Check if the file is an image
+    if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
+      console.log("Unauthorized file : ", file.originalname);
+      cb(null, false);
+    } else {
+      cb(null, true);
+    }
+  };
+
   // Multer configuration for handling file uploads
   const storage = multer.diskStorage({
     destination: "./storage/images",
     filename: (req, file, cb) => {
       const name = file.originalname.split(".")[0];
-      currentFileName = `${name}_${Date.now()}${path.extname(file.originalname)}`
+      let currentFileName = `${name}_${Date.now()}${path.extname(
+        file.originalname
+      )}`;
       console.log(currentFileName);
-      return cb(
-        null,
-        currentFileName
-      );
+      return cb(null, currentFileName);
     },
   });
 
   const upload = multer({
     storage: storage,
-    // fileFilter: function (req, file, cb) {
-    //   let regex = /\.(jpg|JPG|jpeg|JPEG|png|PNG|pdf)$/;
-    //   if (!file.originalname.match(regex)) {
-    //     console.log("Don't match regex");
-    //     req.fileValidationError = "Only image files are allowed!";
-    //     return cb(new Error("Only image files are allowed!"), false);
-    //   }
-    // },
+    fileFilter: imageFilter,
   });
 
-  app.post("/category", upload.none(), (req, res) => {
+  //TODO replace by user token when user implemented
+
+  app.post("/document", upload.array("files", 10), async (req, res) => {
+    try {
+      let { title, desc, link, date, categories } = req.body;
+
+      if (categories == null || undefined) {
+        categories = [];
+      }
+      if (date == null || undefined) {
+        date = new Date()
+        date = date.toISOString().slice(0, 19).replace('T', ' ');
+        console.log(date);
+      }
+
+      // Insert into document table
+      const documentInsertQuery =
+        "INSERT INTO document (title,descr,creation_date,link) VALUES (?,?,?,?);";
+      const documentParams = [title, desc, date, link];
+
+      // Insert into document_category table
+      const documentId = await new Promise((resolve, reject) => {
+        db.run(documentInsertQuery, documentParams, function (err) {
+          if (err) return reject(err);
+          resolve(this.lastID); // Return the last inserted row id
+        });
+      });
+
+      const categoryInsertQuery =
+        "INSERT INTO document_category (doc_id, cat_id) VALUES (?, ?);";
+      const updatedCategories = [...categories, "1"];
+      for (const categoryId of updatedCategories) {
+        await new Promise((resolve, reject) => {
+          db.run(categoryInsertQuery, [documentId, categoryId], function (err) {
+            if (err) return reject(err);
+            resolve();
+          });
+        });
+      }
+
+      const imageInsertQuery = "INSERT INTO image (doc_id, img_path) VALUES (?, ?);";
+      req.files.forEach(async file => {
+        await new Promise((resolve, reject) => {
+          db.run(imageInsertQuery, [documentId, file.filename], function (err) {
+            if (err) return reject(err);
+            resolve();
+          });
+        });
+      });
+
+      console.log("Successful input document: ", title);
+      return res
+        .status(201)
+        .json({ id:documentId, title, desc, date, link, updatedCategories });
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post("/category", (req, res) => {
     try {
       let title = req.body.title;
       if (title == null || undefined) {
@@ -178,7 +244,7 @@ function makeApp() {
       console.log(title);
       let sql = "INSERT INTO category (title) VALUES (?);";
       db.run(sql, [title], (err) => {
-        if (err) return res.status(300).json({ error: err });
+        if (err) return res.status(400).json({ error: err });
         console.log("Successful input category : ", title);
       });
       return res.status(200).json({ title });
@@ -187,56 +253,51 @@ function makeApp() {
     }
   });
 
-  app.post("/document", upload.single("file"), async (req, res) => {
-    try {
-      let { title, desc, date, categories } = req.body;
-      const filePath = currentFileName;
-
-      if(categories == null || undefined){
-        categories = [];
-      }
-      
-      // Insert into document table
-      const documentInsertQuery = "INSERT INTO document (img_path,title,descr,creation_date) VALUES (?,?,?,?);";
-      const documentParams = [filePath, title, desc, date];
-  
-      // Insert into document_category table
-      const documentId = await new Promise((resolve, reject) => {
-        db.run(documentInsertQuery, documentParams, function(err) {
-          if (err) return reject(err);
-          resolve(this.lastID); // Return the last inserted row id
-        });
-      });
-  
-      const categoryInsertQuery = "INSERT INTO document_category (doc_id, cat_id) VALUES (?, ?);";
-      const updatedCategories = [...categories, "1"];
-      for (const categoryId of updatedCategories) {
-        await new Promise((resolve, reject) => {
-          db.run(categoryInsertQuery, [documentId, categoryId], function(err) {
-            if (err) return reject(err);
-            resolve();
-          });
-        });
-      }
-  
-      console.log("Successful input document: ", title);
-      return res.status(201).json({ filePath,title, desc, date, updatedCategories });
-    } catch (err) {
-      return res.status(400).json({ error: err.message });
-    }
-  });
-
-  app.get('/image/:imgPath', (req, res) => {
+  app.get("/image/:imgPath", (req, res) => {
     let img = req.params.imgPath;
     if (img == null || undefined) {
       return res.status(400).json({ error: "Invalid value" });
     }
-    const imagePath = path.join(__dirname, 'storage', 'images', img);
+    const imagePath = path.join(__dirname, "storage", "images", img);
 
     // Send the image file
     res.sendFile(imagePath);
   });
-  
+
+  app.delete("/document/:id", async (req, res) => {
+    try {
+      let sql = "SELECT img_path FROM image where doc_id = ?";
+      const argms = req.params.id;
+      await new Promise((resolve, reject) => {
+        db.all(sql, argms, (err, rows) => {
+          if (err) {
+            console.error(err);
+            reject(err);
+          }
+          rows.forEach(imgPath => {
+            fs.unlink(`./storage/images/${imgPath.img_path}`, (err) => {
+              if (err) {
+                console.error('Error deleting file:', err);
+              }
+              console.log('File deleted successfully : ',imgPath.img_path);
+            });
+          });
+        });
+        sql = "DELETE FROM document where id = ?";
+        db.run(sql, argms, (err) => {
+          if (err) {
+            console.error(err);
+            reject(err);
+          }
+        });
+        resolve();
+      });
+      console.log("Delete Success");
+      return res.status(200).json({ deletedId: argms });
+    } catch (err) {
+      return res.status(400).json({ error: err });
+    }
+  });
 
   app.PORT = process.env.PORT || 3000;
   return app;
