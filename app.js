@@ -83,10 +83,11 @@ function makeApp() {
     if (req.query.offset !== undefined) {
       offset = req.query.offset;
     }
-    let sql = `SELECT d.*, GROUP_CONCAT(c.title) AS category_titles
+    let sql = `SELECT d.*, GROUP_CONCAT(DISTINCT c.title) AS categories, GROUP_CONCAT(DISTINCT i.img_path) AS images
     FROM document d
     LEFT JOIN document_category dc ON d.id = dc.doc_id
     LEFT JOIN category c ON dc.cat_id = c.id
+    LEFT JOIN image i ON d.id = i.doc_id
 
     GROUP BY d.id
     LIMIT ? OFFSET ?;`;
@@ -100,6 +101,18 @@ function makeApp() {
           console.error("No match");
           return res.status(400).json({ error: "No match" });
         }
+        rows.forEach(row => {
+          if (row.images) {
+            row.images = row.images.split(',').map(img => "http://localhost:3000/image/" + img);;
+          } else {
+            row.images = [];
+          }
+          if (row.categories) {
+            row.categories = row.categories.split(',');
+          } else {
+            row.categories = [];
+          }
+        });
         console.log("Successfull request");
         return res.status(200).json({ data: rows });
       });
@@ -118,27 +131,52 @@ function makeApp() {
     if (req.query.offset !== undefined) {
       offset = req.query.offset;
     }
-    let category = "";
-    if (req.params.catName !== undefined) {
-      category = req.params.catName;
-    }
-    let sql = `SELECT d.*
+    let sql = `SELECT d.*, GROUP_CONCAT(DISTINCT c.title) AS categories, GROUP_CONCAT(DISTINCT i.img_path) AS images
         FROM document d
-        JOIN document_category dc ON d.id = dc.doc_id
-        JOIN category c ON dc.cat_id = c.id
+        LEFT JOIN image i ON d.id = i.doc_id
+        LEFT JOIN document_category dc ON d.id = dc.doc_id
+        LEFT JOIN category c ON dc.cat_id = c.id
         WHERE c.title = ?
+        GROUP BY d.id
         LIMIT ? OFFSET ?;`;
+
+    let category = "";
+    let args =  [];
+    if (req.params.catName !== undefined && req.params.catName !== "all") {
+      category = req.params.catName;
+      args = [category, limit, offset];
+    }else{
+      sql = `SELECT d.*, GROUP_CONCAT(DISTINCT c.title) AS categories, GROUP_CONCAT(DISTINCT i.img_path) AS images
+      FROM document d
+      LEFT JOIN image i ON d.id = i.doc_id
+      LEFT JOIN document_category dc ON d.id = dc.doc_id
+      LEFT JOIN category c ON dc.cat_id = c.id
+      GROUP BY d.id
+      LIMIT ? OFFSET ?;`
+      args = [limit, offset];
+    }
     try {
-      console.log(sql, [category, limit, offset]);
       db.all(sql, [category, limit, offset], (err, rows) => {
         if (err) {
           console.error(err);
           return res.status(400).json({ error: err });
         }
         if (rows.length < 1) {
-          console.error("No match for category : ",category);
-          return res.status(400).json({ error: "No match",category });
+          console.error("No match");
+          return res.status(400).json({ error: "No match" });
         }
+        rows.forEach(row => {
+          if (row.images) {
+            row.images = row.images.split(',');
+          } else {
+            row.images = [];
+          }
+          if (row.categories) {
+            row.categories = row.categories.split(',');
+          } else {
+            row.categories = [];
+          }
+        });
         console.log("Successfull request");
         return res.status(200).json({ data: rows });
       });
@@ -176,14 +214,15 @@ function makeApp() {
     fileFilter: imageFilter,
   });
 
-  //TODO replace by user token when user implemented
-
   app.post("/document", upload.array("files", 10), async (req, res) => {
     try {
       let { title, desc, link, date, categories } = req.body;
 
       if (categories == null || undefined) {
         categories = [];
+      }
+      else{
+        categories = categories.split(",")
       }
       if (date == null || undefined) {
         date = new Date()
@@ -235,17 +274,21 @@ function makeApp() {
     }
   });
 
-  app.post("/category", (req, res) => {
+  app.post("/category", async (req, res) => {
     try {
+      console.log(req.body);
       let title = req.body.title;
-      if (title == null || undefined) {
-        return res.status(400).json({ error: "Invalid value" });
+      if (title === null || title === undefined) {
+        return res.status(403).json({ error: "Invalid value" });
       }
       console.log(title);
       let sql = "INSERT INTO category (title) VALUES (?);";
-      db.run(sql, [title], (err) => {
-        if (err) return res.status(400).json({ error: err });
-        console.log("Successful input category : ", title);
+      await new Promise((resolve, reject) => {
+        db.run(sql, [title], (err) => {
+          if (err) reject(err);
+          console.log("Successful input category : ", title);
+          resolve();
+        });
       });
       return res.status(200).json({ title });
     } catch (err) {
