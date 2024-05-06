@@ -36,7 +36,7 @@ To run the API using Docker, follow these steps:
     curl http://localhost:3000/documents
     ```
 
-- **GET /category**: Retrieve documents by category.
+- **GET /category/:catName**: Retrieve documents by category. Use 'all' as catName to get all documents.
 
     Example:
     ```bash
@@ -45,18 +45,18 @@ To run the API using Docker, follow these steps:
 
 - **POST /category**: Create a new category.
 
-    Category 1 is "all", created when build the docker
     Example:
     ```bash
     curl -X POST -d "title=new_category" http://localhost:3000/category
     ```
 
-- **POST /document**: Create a new document.
+- **POST /document**: Create a new document. Supports file uploads.
 
     Example:
     ```bash
-    curl -X POST -F "title=New Document" -F "desc=Description" -F "date=2024-04-27" -F "categories[]=1" -F "file=@/path/to/image.jpg" http://localhost:3000/document
+    curl -X POST -F "title=New Document" -F "desc=Description" -F "date=2024-04-27" -F "categories=1,2" -F "link=http://example.com" -F "files=@/path/to/image.jpg" http://localhost:3000/document
     ```
+
 
 - **GET /image/:imgPath**: Retrieve an image by file path.
 
@@ -64,6 +64,14 @@ To run the API using Docker, follow these steps:
     ```bash
     curl http://localhost:3000/image/image.jpg
     ```
+
+- **DELETE /document/:id**: Delete a document by ID.
+
+    Example:
+    ```bash
+    curl -X DELETE http://localhost:3000/document/123
+    ```
+
 
 ## Environment Variables
 

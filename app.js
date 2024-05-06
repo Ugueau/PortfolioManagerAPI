@@ -276,7 +276,6 @@ function makeApp() {
 
   app.post("/category", async (req, res) => {
     try {
-      console.log(req.body);
       let title = req.body.title;
       if (title === null || title === undefined) {
         return res.status(403).json({ error: "Invalid value" });
