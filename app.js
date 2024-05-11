@@ -22,7 +22,7 @@ db.run('PRAGMA foreign_keys = ON;');
 function makeApp() {
   const app = express();
   // Set the root directory for serving static files
-  app.use(express.static(path.join(__dirname, "storage")));
+  app.use(express.static(path.join(__dirname, "data")));
   const baseLimit = 50;
 
   app.use(bodyParser.json());
@@ -103,7 +103,7 @@ function makeApp() {
         }
         rows.forEach(row => {
           if (row.images) {
-            row.images = row.images.split(',').map(img => "http://localhost:3000/image/" + img);;
+            row.images = row.images.split(',').map(img => "http://86.235.199.160:3000/image/" + img);;
           } else {
             row.images = [];
           }
@@ -198,7 +198,7 @@ function makeApp() {
 
   // Multer configuration for handling file uploads
   const storage = multer.diskStorage({
-    destination: "./storage/images",
+    destination: "./data/images",
     filename: (req, file, cb) => {
       const name = file.originalname.split(".")[0];
       let currentFileName = `${name}_${Date.now()}${path.extname(
@@ -218,7 +218,7 @@ function makeApp() {
     try {
       let { title, desc, link, date, categories } = req.body;
 
-      if (categories == null || undefined) {
+      if (categories == null || undefined || categories.length == 0) {
         categories = [];
       }
       else{
@@ -242,17 +242,21 @@ function makeApp() {
           resolve(this.lastID); // Return the last inserted row id
         });
       });
-
-      const categoryInsertQuery =
-        "INSERT INTO document_category (doc_id, cat_id) VALUES (?, ?);";
-      const updatedCategories = [...categories];
-      for (const categoryId of updatedCategories) {
-        await new Promise((resolve, reject) => {
-          db.run(categoryInsertQuery, [documentId, categoryId], function (err) {
-            if (err) return reject(err);
-            resolve();
+      if (categories.length > 0) {
+        const categoryInsertQuery =
+          "INSERT INTO document_category (doc_id, cat_id) VALUES (?, ?);";
+        for (const categoryId of categories) {
+          await new Promise((resolve, reject) => {
+            db.run(
+              categoryInsertQuery,
+              [documentId, categoryId],
+              function (err) {
+                if (err) return reject(err);
+                resolve();
+              }
+            );
           });
-        });
+        }
       }
 
       const imageInsertQuery = "INSERT INTO image (doc_id, img_path) VALUES (?, ?);";
@@ -268,7 +272,7 @@ function makeApp() {
       console.log("Successful input document: ", title);
       return res
         .status(201)
-        .json({ id:documentId, title, desc, date, link, updatedCategories });
+        .json({ id:documentId, title, desc, date, link, categories });
     } catch (err) {
       return res.status(400).json({ error: err.message });
     }
@@ -300,7 +304,7 @@ function makeApp() {
     if (img == null || undefined) {
       return res.status(400).json({ error: "Invalid value" });
     }
-    const imagePath = path.join(__dirname, "storage", "images", img);
+    const imagePath = path.join(__dirname, "data", "images", img);
 
     // Send the image file
     res.sendFile(imagePath);
@@ -317,7 +321,7 @@ function makeApp() {
             reject(err);
           }
           rows.forEach(imgPath => {
-            fs.unlink(`./storage/images/${imgPath.img_path}`, (err) => {
+            fs.unlink(`./data/images/${imgPath.img_path}`, (err) => {
               if (err) {
                 console.error('Error deleting file:', err);
               }

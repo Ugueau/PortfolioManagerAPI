@@ -17,7 +17,6 @@ RUN apt-get update && apt-get install -y sqlite3
 COPY server.js .
 COPY app.js .
 COPY init_sqlite.sql .
-COPY server.js .
 
 # Create an empty SQLite database file
 RUN touch portfolio.db
