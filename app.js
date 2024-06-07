@@ -59,7 +59,7 @@ function makeApp() {
             return res.status(400).json({ error: err });
           }
           if (rows.length < 1) {
-            console.error("No match id : ", id);
+            console.error("No match id : ", docId);
             return res.status(400).json({ error: "No match", id });
           }
           console.log("Successfull request for document : ", docId);
